@@ -1,0 +1,63 @@
+version: '2'
+services:
+  mailserver-config-generator:
+    image: hourliert/docker-mailserver-config:1.0.0
+    container_name: mailserver-config-generator
+    networks:
+      - back
+    volumes:
+      - mailconfig:/tmp/docker-mailserver
+    environment:
+      - MAIL_USERS=${MAIL_USERS}
+      - MAIL_PASSWORDS=${MAIL_PASSWORDS}
+      - MAIL_DOMAIN=${MAIL_DOMAIN}
+
+  mailserver:
+    image: tvial/docker-mailserver:latest
+    hostname: mail
+    domainname: ${MAIL_DOMAIN}
+    container_name: mail
+    restart: always
+    networks:
+      - back
+    ports:
+      - "25:25"
+      - "143:143"
+      - "587:587"
+      - "993:993"
+    depends_on:
+      - mailserver-config-generator
+    volumes:
+      - mailconfig:/tmp/docker-mailserver
+      - maildata:/var/mail
+      - letsencrypt:/etc/letsencrypt
+    environment:
+      - SSL_TYPE=letsencrypt
+
+  webmail:
+    image: jprjr/rainloop
+    container_name: rainloop
+    restart: always
+    networks:
+      - front
+    expose:
+      - "80"
+    volumes:
+      - rainloop:/var/lib/rainloop/data
+    environment:
+      - VIRTUAL_HOST=${RAINLOOP_VIRTUAL_HOST}
+      - LETSENCRYPT_HOST=${RAINLOOP_VIRTUAL_HOST}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - NGINX=1
+
+volumes:
+  mailconfig:
+  maildata:
+  rainloop:
+  letsencrypt:
+
+networks:
+  back:
+  front:
+    external:
+      name: proxy_front
